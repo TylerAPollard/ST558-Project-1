@@ -1,0 +1,8 @@
+---
+title: "ST558 Project 1"
+author: "Tyler Pollard"
+date: "6/15/2021"
+output: github_document
+---
+
+
