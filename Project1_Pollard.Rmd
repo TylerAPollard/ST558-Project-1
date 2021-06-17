@@ -4,12 +4,50 @@ author: "Tyler Pollard"
 date: "6/15/2021"
 output: 
   github_document:
-    toc: true
+    toc: TRUE
     toc_depth: 3
 ---
+
+```{r setup, echo = FALSE, eval = TRUE, warning = FALSE, message = FALSE}
+library(knitr)
+opts_chunk$set(echo = FALSE, eval = TRUE, warning = FALSE, message = FALSE)
+#github_document(toc = TRUE, toc_depth = 3)
+```
 
 # Reading and Summarizing Data from the National Hockey League's (NHL) API
 
 ## Introduction
 This vignette is an introduction on how to read and summarize data using the `tidyverse`. We will be using the National Hockey League's (NHL) API. 
+
+## Load Packages
+Before reading and summarizing the data, some necessary packages must be loaded.
+```{r packages, echo = TRUE}
+library(httr)
+library(jsonlite)
+library(rmarkdown)
+library(knitr)
+library(tidyverse)
+library(dplyr)
+library(readr)
+library(DT)
+```
+
+## NHL Record API
+```{r NHL Record API}
+base <- "https://records.nhl.com/site/api"
+get_franchise_info <- function(){
+  call1 <- paste0(base, "/", "franchise")
+  get_franchise <- GET(call1)
+  get_franchise_text <- content(get_franchise, as ="text")
+  get_franchise_json <- fromJSON(get_franchise_text, flatten = TRUE)
+  get_franchise_df <- as.data.frame(get_franchise_json)
+  get_franchise_df$total <- NULL
+  kable(get_franchise_df, col.names = c("ID", "First Season", "Full Name", "Last Season", "Most Recent Team ID",
+                                       "Abbreviation", "Common Name", "Location"))
+}
+get_franchise_info()
+```
+
+
+
 

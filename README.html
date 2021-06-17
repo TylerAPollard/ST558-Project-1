@@ -605,6 +605,423 @@ body {
 <h1 id="reading-and-summarizing-data-from-the-national-hockey-leagues-(nhl)-api">Reading and Summarizing Data from the National Hockey League’s (NHL) API</h1>
 <h2 id="introduction">Introduction</h2>
 <p>This vignette is an introduction on how to read and summarize data using the <code>tidyverse</code>. We will be using the National Hockey League’s (NHL) API.</p>
+<h2 id="load-packages">Load Packages</h2>
+<p>Before reading and summarizing the data, some necessary packages must be loaded.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb1-1" data-line-number="1"><span class="kw">library</span>(httr)</a>
+<a class="sourceLine" id="cb1-2" data-line-number="2"><span class="kw">library</span>(jsonlite)</a>
+<a class="sourceLine" id="cb1-3" data-line-number="3"><span class="kw">library</span>(rmarkdown)</a>
+<a class="sourceLine" id="cb1-4" data-line-number="4"><span class="kw">library</span>(knitr)</a>
+<a class="sourceLine" id="cb1-5" data-line-number="5"><span class="kw">library</span>(tidyverse)</a>
+<a class="sourceLine" id="cb1-6" data-line-number="6"><span class="kw">library</span>(dplyr)</a>
+<a class="sourceLine" id="cb1-7" data-line-number="7"><span class="kw">library</span>(readr)</a>
+<a class="sourceLine" id="cb1-8" data-line-number="8"><span class="kw">library</span>(DT)</a></code></pre></div>
+<h2 id="nhl-record-api">NHL Record API</h2>
+<table>
+<thead>
+<tr class="header">
+<th align="right">ID</th>
+<th align="right">First Season</th>
+<th align="left">Full Name</th>
+<th align="right">Last Season</th>
+<th align="right">Most Recent Team ID</th>
+<th align="left">Abbreviation</th>
+<th align="left">Common Name</th>
+<th align="left">Location</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">1</td>
+<td align="right">19171918</td>
+<td align="left">Montréal Canadiens</td>
+<td align="right">NA</td>
+<td align="right">8</td>
+<td align="left">MTL</td>
+<td align="left">Canadiens</td>
+<td align="left">Montréal</td>
+</tr>
+<tr class="even">
+<td align="right">2</td>
+<td align="right">19171918</td>
+<td align="left">Montreal Wanderers</td>
+<td align="right">19171918</td>
+<td align="right">41</td>
+<td align="left">MWN</td>
+<td align="left">Wanderers</td>
+<td align="left">Montreal</td>
+</tr>
+<tr class="odd">
+<td align="right">3</td>
+<td align="right">19171918</td>
+<td align="left">St. Louis Eagles</td>
+<td align="right">19341935</td>
+<td align="right">45</td>
+<td align="left">SLE</td>
+<td align="left">Eagles</td>
+<td align="left">St. Louis</td>
+</tr>
+<tr class="even">
+<td align="right">4</td>
+<td align="right">19191920</td>
+<td align="left">Hamilton Tigers</td>
+<td align="right">19241925</td>
+<td align="right">37</td>
+<td align="left">HAM</td>
+<td align="left">Tigers</td>
+<td align="left">Hamilton</td>
+</tr>
+<tr class="odd">
+<td align="right">5</td>
+<td align="right">19171918</td>
+<td align="left">Toronto Maple Leafs</td>
+<td align="right">NA</td>
+<td align="right">10</td>
+<td align="left">TOR</td>
+<td align="left">Maple Leafs</td>
+<td align="left">Toronto</td>
+</tr>
+<tr class="even">
+<td align="right">6</td>
+<td align="right">19241925</td>
+<td align="left">Boston Bruins</td>
+<td align="right">NA</td>
+<td align="right">6</td>
+<td align="left">BOS</td>
+<td align="left">Bruins</td>
+<td align="left">Boston</td>
+</tr>
+<tr class="odd">
+<td align="right">7</td>
+<td align="right">19241925</td>
+<td align="left">Montreal Maroons</td>
+<td align="right">19371938</td>
+<td align="right">43</td>
+<td align="left">MMR</td>
+<td align="left">Maroons</td>
+<td align="left">Montreal</td>
+</tr>
+<tr class="even">
+<td align="right">8</td>
+<td align="right">19251926</td>
+<td align="left">Brooklyn Americans</td>
+<td align="right">19411942</td>
+<td align="right">51</td>
+<td align="left">BRK</td>
+<td align="left">Americans</td>
+<td align="left">Brooklyn</td>
+</tr>
+<tr class="odd">
+<td align="right">9</td>
+<td align="right">19251926</td>
+<td align="left">Philadelphia Quakers</td>
+<td align="right">19301931</td>
+<td align="right">39</td>
+<td align="left">QUA</td>
+<td align="left">Quakers</td>
+<td align="left">Philadelphia</td>
+</tr>
+<tr class="even">
+<td align="right">10</td>
+<td align="right">19261927</td>
+<td align="left">New York Rangers</td>
+<td align="right">NA</td>
+<td align="right">3</td>
+<td align="left">NYR</td>
+<td align="left">Rangers</td>
+<td align="left">New York</td>
+</tr>
+<tr class="odd">
+<td align="right">11</td>
+<td align="right">19261927</td>
+<td align="left">Chicago Blackhawks</td>
+<td align="right">NA</td>
+<td align="right">16</td>
+<td align="left">CHI</td>
+<td align="left">Blackhawks</td>
+<td align="left">Chicago</td>
+</tr>
+<tr class="even">
+<td align="right">12</td>
+<td align="right">19261927</td>
+<td align="left">Detroit Red Wings</td>
+<td align="right">NA</td>
+<td align="right">17</td>
+<td align="left">DET</td>
+<td align="left">Red Wings</td>
+<td align="left">Detroit</td>
+</tr>
+<tr class="odd">
+<td align="right">13</td>
+<td align="right">19671968</td>
+<td align="left">Cleveland Barons</td>
+<td align="right">19771978</td>
+<td align="right">49</td>
+<td align="left">CLE</td>
+<td align="left">Barons</td>
+<td align="left">Cleveland</td>
+</tr>
+<tr class="even">
+<td align="right">14</td>
+<td align="right">19671968</td>
+<td align="left">Los Angeles Kings</td>
+<td align="right">NA</td>
+<td align="right">26</td>
+<td align="left">LAK</td>
+<td align="left">Kings</td>
+<td align="left">Los Angeles</td>
+</tr>
+<tr class="odd">
+<td align="right">15</td>
+<td align="right">19671968</td>
+<td align="left">Dallas Stars</td>
+<td align="right">NA</td>
+<td align="right">25</td>
+<td align="left">DAL</td>
+<td align="left">Stars</td>
+<td align="left">Dallas</td>
+</tr>
+<tr class="even">
+<td align="right">16</td>
+<td align="right">19671968</td>
+<td align="left">Philadelphia Flyers</td>
+<td align="right">NA</td>
+<td align="right">4</td>
+<td align="left">PHI</td>
+<td align="left">Flyers</td>
+<td align="left">Philadelphia</td>
+</tr>
+<tr class="odd">
+<td align="right">17</td>
+<td align="right">19671968</td>
+<td align="left">Pittsburgh Penguins</td>
+<td align="right">NA</td>
+<td align="right">5</td>
+<td align="left">PIT</td>
+<td align="left">Penguins</td>
+<td align="left">Pittsburgh</td>
+</tr>
+<tr class="even">
+<td align="right">18</td>
+<td align="right">19671968</td>
+<td align="left">St. Louis Blues</td>
+<td align="right">NA</td>
+<td align="right">19</td>
+<td align="left">STL</td>
+<td align="left">Blues</td>
+<td align="left">St. Louis</td>
+</tr>
+<tr class="odd">
+<td align="right">19</td>
+<td align="right">19701971</td>
+<td align="left">Buffalo Sabres</td>
+<td align="right">NA</td>
+<td align="right">7</td>
+<td align="left">BUF</td>
+<td align="left">Sabres</td>
+<td align="left">Buffalo</td>
+</tr>
+<tr class="even">
+<td align="right">20</td>
+<td align="right">19701971</td>
+<td align="left">Vancouver Canucks</td>
+<td align="right">NA</td>
+<td align="right">23</td>
+<td align="left">VAN</td>
+<td align="left">Canucks</td>
+<td align="left">Vancouver</td>
+</tr>
+<tr class="odd">
+<td align="right">21</td>
+<td align="right">19721973</td>
+<td align="left">Calgary Flames</td>
+<td align="right">NA</td>
+<td align="right">20</td>
+<td align="left">CGY</td>
+<td align="left">Flames</td>
+<td align="left">Calgary</td>
+</tr>
+<tr class="even">
+<td align="right">22</td>
+<td align="right">19721973</td>
+<td align="left">New York Islanders</td>
+<td align="right">NA</td>
+<td align="right">2</td>
+<td align="left">NYI</td>
+<td align="left">Islanders</td>
+<td align="left">New York</td>
+</tr>
+<tr class="odd">
+<td align="right">23</td>
+<td align="right">19741975</td>
+<td align="left">New Jersey Devils</td>
+<td align="right">NA</td>
+<td align="right">1</td>
+<td align="left">NJD</td>
+<td align="left">Devils</td>
+<td align="left">New Jersey</td>
+</tr>
+<tr class="even">
+<td align="right">24</td>
+<td align="right">19741975</td>
+<td align="left">Washington Capitals</td>
+<td align="right">NA</td>
+<td align="right">15</td>
+<td align="left">WSH</td>
+<td align="left">Capitals</td>
+<td align="left">Washington</td>
+</tr>
+<tr class="odd">
+<td align="right">25</td>
+<td align="right">19791980</td>
+<td align="left">Edmonton Oilers</td>
+<td align="right">NA</td>
+<td align="right">22</td>
+<td align="left">EDM</td>
+<td align="left">Oilers</td>
+<td align="left">Edmonton</td>
+</tr>
+<tr class="even">
+<td align="right">26</td>
+<td align="right">19791980</td>
+<td align="left">Carolina Hurricanes</td>
+<td align="right">NA</td>
+<td align="right">12</td>
+<td align="left">CAR</td>
+<td align="left">Hurricanes</td>
+<td align="left">Carolina</td>
+</tr>
+<tr class="odd">
+<td align="right">27</td>
+<td align="right">19791980</td>
+<td align="left">Colorado Avalanche</td>
+<td align="right">NA</td>
+<td align="right">21</td>
+<td align="left">COL</td>
+<td align="left">Avalanche</td>
+<td align="left">Colorado</td>
+</tr>
+<tr class="even">
+<td align="right">28</td>
+<td align="right">19791980</td>
+<td align="left">Arizona Coyotes</td>
+<td align="right">NA</td>
+<td align="right">53</td>
+<td align="left">ARI</td>
+<td align="left">Coyotes</td>
+<td align="left">Arizona</td>
+</tr>
+<tr class="odd">
+<td align="right">29</td>
+<td align="right">19911992</td>
+<td align="left">San Jose Sharks</td>
+<td align="right">NA</td>
+<td align="right">28</td>
+<td align="left">SJS</td>
+<td align="left">Sharks</td>
+<td align="left">San Jose</td>
+</tr>
+<tr class="even">
+<td align="right">30</td>
+<td align="right">19921993</td>
+<td align="left">Ottawa Senators</td>
+<td align="right">NA</td>
+<td align="right">9</td>
+<td align="left">OTT</td>
+<td align="left">Senators</td>
+<td align="left">Ottawa</td>
+</tr>
+<tr class="odd">
+<td align="right">31</td>
+<td align="right">19921993</td>
+<td align="left">Tampa Bay Lightning</td>
+<td align="right">NA</td>
+<td align="right">14</td>
+<td align="left">TBL</td>
+<td align="left">Lightning</td>
+<td align="left">Tampa Bay</td>
+</tr>
+<tr class="even">
+<td align="right">32</td>
+<td align="right">19931994</td>
+<td align="left">Anaheim Ducks</td>
+<td align="right">NA</td>
+<td align="right">24</td>
+<td align="left">ANA</td>
+<td align="left">Ducks</td>
+<td align="left">Anaheim</td>
+</tr>
+<tr class="odd">
+<td align="right">33</td>
+<td align="right">19931994</td>
+<td align="left">Florida Panthers</td>
+<td align="right">NA</td>
+<td align="right">13</td>
+<td align="left">FLA</td>
+<td align="left">Panthers</td>
+<td align="left">Florida</td>
+</tr>
+<tr class="even">
+<td align="right">34</td>
+<td align="right">19981999</td>
+<td align="left">Nashville Predators</td>
+<td align="right">NA</td>
+<td align="right">18</td>
+<td align="left">NSH</td>
+<td align="left">Predators</td>
+<td align="left">Nashville</td>
+</tr>
+<tr class="odd">
+<td align="right">35</td>
+<td align="right">19992000</td>
+<td align="left">Winnipeg Jets</td>
+<td align="right">NA</td>
+<td align="right">52</td>
+<td align="left">WPG</td>
+<td align="left">Jets</td>
+<td align="left">Winnipeg</td>
+</tr>
+<tr class="even">
+<td align="right">36</td>
+<td align="right">20002001</td>
+<td align="left">Columbus Blue Jackets</td>
+<td align="right">NA</td>
+<td align="right">29</td>
+<td align="left">CBJ</td>
+<td align="left">Blue Jackets</td>
+<td align="left">Columbus</td>
+</tr>
+<tr class="odd">
+<td align="right">37</td>
+<td align="right">20002001</td>
+<td align="left">Minnesota Wild</td>
+<td align="right">NA</td>
+<td align="right">30</td>
+<td align="left">MIN</td>
+<td align="left">Wild</td>
+<td align="left">Minnesota</td>
+</tr>
+<tr class="even">
+<td align="right">38</td>
+<td align="right">20172018</td>
+<td align="left">Vegas Golden Knights</td>
+<td align="right">NA</td>
+<td align="right">54</td>
+<td align="left">VGK</td>
+<td align="left">Golden Knights</td>
+<td align="left">Vegas</td>
+</tr>
+<tr class="odd">
+<td align="right">39</td>
+<td align="right">20212022</td>
+<td align="left">Seattle Kraken</td>
+<td align="right">NA</td>
+<td align="right">55</td>
+<td align="left">SEA</td>
+<td align="left">Kraken</td>
+<td align="left">Seattle</td>
+</tr>
+</tbody>
+</table>
 
 </body>
 </html>
