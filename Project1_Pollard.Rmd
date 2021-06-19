@@ -30,24 +30,145 @@ library(tidyverse)
 library(dplyr)
 library(readr)
 library(DT)
+library(lubridate)
+library(shiny)
+library(shinyWidgets)
 ```
 
 ## NHL Record API
-```{r NHL Record API}
-base <- "https://records.nhl.com/site/api"
-get_franchise_info <- function(){
-  call1 <- paste0(base, "/", "franchise")
-  get_franchise <- GET(call1)
-  get_franchise_text <- content(get_franchise, as ="text")
-  get_franchise_json <- fromJSON(get_franchise_text, flatten = TRUE)
-  get_franchise_df <- as.data.frame(get_franchise_json)
-  get_franchise_df$total <- NULL
-  kable(get_franchise_df, col.names = c("ID", "First Season", "Full Name", "Last Season", "Most Recent Team ID",
-                                       "Abbreviation", "Common Name", "Location"))
+```{r API reader}
+API_info <- function(call){
+  base <- "https://records.nhl.com/site/api"
+  get_info <- GET(paste0(base, "/", call))
+  get_info_text <- content(get_info, as = "text")
+  get_info_json <- fromJSON(get_info_text, flatten = TRUE)
+  get_info_df <- as.data.frame(get_info_json)
 }
-get_franchise_info()
 ```
 
 
+### Franchise
+```{r NHL Record API franchise}
+franchise_info <- function(){
+  franchise_df <- API_info("franchise")
+  franchise_df$data.id <- NULL
+  franchise_df$total <- NULL
+  franchise_df <<- franchise_df
+  franchise_df <- franchise_df %>% select(data.mostRecentTeamId, data.fullName, data.teamPlaceName,
+                                                  data.teamCommonName, data.teamAbbrev, data.firstSeasonId,
+                                                  data.lastSeasonId) %>% arrange(data.mostRecentTeamId)
+  kable(franchise_df, col.names = c("Most Recent Team ID", "Full Name", "Location", "Common Name", "Abbreviation", "First Season", "Last Season"))
+}
+franchise_info()
+```
 
+### Franchise Team Totals
+```{r NHL Record API franchise team totals}
+franchise_team_totals <- function(){
+  team_df <- API_info("franchise-team-totals")
+  team_total_df <<- team_df
+  team_df$data.activeFranchise <- as_factor(team_df$data.activeFranchise)
+  levels(team_df$data.activeFranchise) <- list("No" = 0, "Yes" = 1)
+  team_df$data.gameTypeId <- as_factor(team_df$data.gameTypeId)
+  levels(team_df$data.gameTypeId) <- list("Regular Season" = 2, "Playoffs" = 3)
+  # get_franchsie_df[2] <-
+  #   paste0(substr(get_franchise_df[2],1,4),"/",substr(get_franchise_df[2],5,8))
+  team_df$data.id <- NULL
+  team_df$total <- NULL
+  team_df <- team_df %>% select(data.franchiseId, data.teamName, data.triCode, data.teamId, data.activeFranchise, data.firstSeasonId, data.lastSeasonId, everything()) %>% arrange(data.franchiseId)
+  col_names <- c("Franchise ID", "Team Name", "Abbreviation", "Team ID", "Active Franchise", "First Season", "Last Season", "Game Type", "Games Played", "Goals Against", "Goals For", "Home Losses", "Home Overtime Losses", "Home Ties","Home Wins", "Losses", "Overtime Losses", "Penalty Minutes", "Point Percentage", "Data Points", "Road Losses", "Road Overtime Losses", "Road Ties", "Road Wins", "Shootout Losses", "Shootout Wins","Shutouts", "Ties", "Wins")
+  kable(team_df, col.names = col_names)
+}
+franchise_team_totals()
+```
 
+```{r franchise to ID, error=TRUE, message = TRUE}
+franchise_ID <- function(franchise){
+  if(is.numeric(franchise)){
+    if(franchise >0 & franchise < 39)
+      return(franchise)
+    else{
+      stop("Please enter a valid franchise ID from 1-38")
+    }
+  }else{
+    ID_df <- API_info("franchise-team-totals")
+    if(franchise %in% ID_df$data.teamName){
+      ID_num <- ID_df %>% select(data.teamName, data.franchiseId) %>% filter(data.teamName == franchise) %>% select(data.franchiseId) %>% filter(row_number() == 1)
+      return(ID_num[[1]][1])
+    }else{
+      stop("Please enter a valid franchise name")
+    }
+  }
+}
+```
+
+### Season Records
+```{r NHL Franchise Season Records, error = TRUE}
+season_record <- function(franchise){
+  season_df <- API_info(paste0("franchise-season-records?cayenneExp=franchiseId=", franchise_ID(franchise)))
+  season_df <<- season_df
+  season_df$data.id <- NULL
+  season_df$total <- NULL
+  season_df <- season_df %>% select(data.franchiseName, data.franchiseId, everything())
+  kable(t(season_df), col.names = "")
+}
+season_record("New Jersey Devils")
+```
+
+### Goalie Records
+```{r Goalie Records, error = TRUE}
+goalie_record <- function(franchise){
+  goalie_df <- API_info(paste0("franchise-goalie-records?cayenneExp=franchiseId=", franchise_ID(franchise)))
+  goalie_df <<- goalie_df
+  goalie_df$data.id <- NULL
+  goalie_df$total <- NULL
+  kable(goalie_df)
+}
+goalie_record("New Jersey Devils")
+```
+
+### Skater Records
+```{r Skater Records, error = TRUE}
+skater_record <- function(franchise){
+  skater_df <- API_info(paste0("franchise-skater-records?cayenneExp=franchiseId=", franchise_ID(franchise)))
+  skater_df <<- skater_df
+  kable(skater_df)
+}
+#skater_record("New Jersey Devils")
+```
+
+```{r Team ID, error = TRUE}
+team_ID <- function(franchise){
+  if(is.numeric(franchise)){
+    if(franchise > 0 & franchise < 56){
+      if(franchise %in% c(11,27,31,32,33,34,35,36,38,40,42,44,46,47,48,50)){
+        stop("No team ID for 11, 27, 31, 32, 33, 34, 35, 36, 38, 40, 42, 44, 46, 47, 48, 50")
+      }else{
+        return(franchise)
+      }
+    }else{
+      stop("Please enter a valid team ID from 1-55")
+    }
+  }else{
+    ID_df <- API_info("franchise")
+    if(franchise %in% ID_df$data.fullName){
+      ID_num <- ID_df %>% select(data.fullName, data.mostRecentTeamId) %>% filter(data.fullName == franchise) %>% select(data.mostRecentTeamId) %>% filter(row_number() == 1)
+      return(ID_num[[1]][1])
+    }else{
+      stop("Please enter a valid franchise name")
+    }
+  }
+}
+```
+
+### Admin History and Retired Numbers
+```{r Admin History and Retired Numbers, error = TRUE}
+admin_history <- function(franchise){
+  admin_history_df <- API_info(paste0("franchise-detail?cayenneExp=mostRecentTeamId=", team_ID(franchise)))
+  admin_history_df <- admin_history_df %>% select(data.mostRecentTeamId, data.teamFullName, data.teamAbbrev, data.id, everything())
+  admin_history_df$total <- NULL
+  admin_history_df <<- admin_history_df
+  kable(admin_history_df)
+}
+admin_history(12)
+```
