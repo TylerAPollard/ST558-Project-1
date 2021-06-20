@@ -111,7 +111,7 @@ effectiveness.
 | Active         |               149 |         46 |         43 |          6 |
 | Inactive       |               929 |         44 |         40 |          7 |
 
-### Washington Capitals Penalty Minute Summaries
+### Washington Capitals Penalty Minutes
 
 Below is a summary table of the penalty minutes for the Washington
 Capitals parsed by position. Included is the number of skaters at each
@@ -145,6 +145,26 @@ goalies each.
 
 ### Histogram of Win Percentage
 
+This histogram shows the density plot of the winning percentage for all
+teams split up by regular season and playoffs. Overlayed is the density
+distribution. From the plots it can be seen that the average winning
+percentage for both regular season and playoffs is aroung .5 which means
+that the teams on average win as many games as they lose. This makes
+sense because the outcome of each game can only end with a single winner
+and loser. Each plot is left skewed to show that more teams have been
+unsuccessful in both games types.
+![](Project1_Pollard_2_files/figure-gfm/percentage%20histogram-1.png)<!-- -->
+
+### Histogram of Washington Capitals All Time Goal Leaders
+
+Below is a histogram of the number of seasons played by all of the
+Washington Capitals skaters. This plot is right skewed meaning that of
+all of the skaters that have played for the Capitals the majority only
+stay for a season or two. There is a drop off of skaters who stay with
+the Capitals more than 10 seasons which makes sense because that is a
+very long time with one franchise.
+![](Project1_Pollard_2_files/figure-gfm/WSH%20goal%20histogram-1.png)<!-- -->
+
 ### Boxplot of Divsions
 
 Below shows boxplots for season points by division with the individual
@@ -161,3 +181,22 @@ and Honda West were better than their best
 teams.
 
 ![](Project1_Pollard_2_files/figure-gfm/Division%20Boxplot-1.png)<!-- -->
+
+### Scatter plot
+
+The following plots show the number of goals scored by skaters based on
+the number of seasons they played. The plots are parsed by the position
+that they played. Overlayed is a line of best fit with error bounds to
+show the trend in the data. Based on the trend lines it can be seen that
+the as the number of seasons played by skaters increased so did the
+number of goals they scored. This makes sense because if you play in
+more season you play more games and have more opprotunities to score
+goals. I also think it is interesting that the slope of the trend lines
+are almost identical for the left wings, right wings, and centers
+meaning that those positions score about the same number of goals based
+on the number of seasons they played. The slope for the defensemen is
+much less than the other three which also makes sense because that
+position has less opprotunies to
+score.
+
+![](Project1_Pollard_2_files/figure-gfm/Skater%20Scatter%20Plot-1.png)<!-- -->

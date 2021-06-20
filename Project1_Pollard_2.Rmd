@@ -309,7 +309,7 @@ colnames(goalie_game_df)[1] <- "Players Status"
 kable(goalie_game_df)
 ```
 
-### Washington Capitals Penalty Minute Summaries
+### Washington Capitals Penalty Minutes
 Below is a summary table of the penalty minutes for the Washington Capitals parsed by position. Included is the number of skaters at each position to show the amount of data being pulled to calculate the averages. Based on the averages the left wings and defensemen spend the most time in the penalty box whereas the Centers seem to play a bit cleaner. However, I found it interesting that the position with the max amount of penalty minutes by far came from a center.
 ```{r WSH Skater Summary}
 WSH_skater_df <- NHL_info("skater records", franchise = "Washington Capitals")
@@ -334,11 +334,19 @@ ggplot(data = goalie_df, aes(y = fct_rev(fct_infreq(data.franchiseName)))) + geo
 ```
 
 ### Histogram of Win Percentage
+This histogram shows the density plot of the winning percentage for all teams split up by regular season and playoffs. Overlayed is the density distribution. From the plots it can be seen that the average winning percentage for both regular season and playoffs is aroung .5 which means that the teams on average win as many games as they lose. This makes sense because the outcome of each game can only end with a single winner and loser. Each plot is left skewed to show that more teams have been unsuccessful in both games types.
 ```{r percentage histogram}
 team_totals_df <- NHL_info("team totals")
 team_totals_df <- team_totals_df %>% group_by(data.teamName)
 team_totals_df$win.percentage <- team_totals_df$data.wins/(team_totals_df$data.wins + team_totals_df$data.losses)
-#ggplot(data = team_totals_df, aes(x = data.teamName, ))
+ggplot(data = team_totals_df, aes(x  = win.percentage)) + geom_histogram(aes(y = ..density..), bins = 20) + geom_density(lwd = 2, color = "red", position = "stack") + facet_grid(cols = vars(data.gameTypeId)) + labs(title = "Winning Percentage by Game Type", x = "Win Percentage", y = "Density")
+```
+
+### Histogram of Washington Capitals All Time Goal Leaders
+Below is a histogram of the number of seasons played by all of the Washington Capitals skaters. This plot is right skewed meaning that of all of the skaters that have played for the Capitals the majority only stay for a season or two. There is a drop off of skaters who stay with the Capitals more than 10 seasons which makes sense because that is a very long time with one franchise.
+```{r WSH goal histogram}
+WSH_skater_df <- NHL_info("skater records", "Washington Capitals")
+ggplot(data = WSH_skater_df, aes(x = data.seasons)) + geom_histogram(fill = "red") + labs(title = "Washington Capitals Skater Seasons Played", x = "Seasons", y = "Number of Skaters")
 ```
 
 ### Boxplot of Divsions
@@ -364,4 +372,16 @@ team_stats_df$teams.division.name <- as_factor(team_stats_df$teams.division.name
 team_stats_df$points <- as.numeric(as.character(team_stats_df$points))
 ggplot(data = team_stats_df, aes(x = teams.division.name, y = points)) + geom_boxplot() + geom_point(aes(color = teams.division.name), position = "jitter") + labs(title = "Boxplots of Season Points by Division", x = "Division", y = "Season Points") + scale_color_discrete(name = "Divisions")
 ```
+
+### Scatter plot
+The following plots show the number of goals scored by skaters based on the number of seasons they played. The plots are parsed by the position that they played. Overlayed is a line of best fit with error bounds to show the trend in the data. Based on the trend lines it can be seen that the as the number of seasons played by skaters increased so did the number of goals they scored. This makes sense because if you play in more season you play more games and have more opprotunities to score goals. I also think it is interesting that the slope of the trend lines are almost identical for the left wings, right wings, and centers meaning that those positions score about the same number of goals based on the number of seasons they played. The slope for the defensemen is much less than the other three which also makes sense because that position has less opprotunies to score.
+
+```{r Skater Scatter Plot}
+skater_df <- NHL_info("skater records")
+skater_df$data.positionCode <- as_factor(skater_df$data.positionCode)
+levels(skater_df$data.positionCode) <- list("Left Wing" = "L", "Right Wing" = "R", "Center" = "C", "Defensemen" = "D")
+ggplot(data = skater_df, aes(x = data.seasons, y = data.goals)) + geom_point() + geom_smooth() + facet_grid(cols = vars(data.positionCode)) + labs(title = "Goals Scored by Number of Season", x = "Number of Seasons", y = "Goals Scored")
+```
+
+
 
