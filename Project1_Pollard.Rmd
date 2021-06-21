@@ -10,14 +10,14 @@ output:
 
 ```{r setup, echo = FALSE, eval = TRUE, warning = FALSE, message = FALSE}
 library(knitr)
-opts_chunk$set(echo = FALSE, eval = TRUE, warning = FALSE, message = FALSE)
+opts_chunk$set(echo = TRUE, eval = TRUE, warning = FALSE, message = FALSE)
 #github_document(toc = TRUE, toc_depth = 3)
 ```
 
 # Reading and Summarizing Data from the National Hockey League's (NHL) API
 
 ## Introduction
-This vignette is an introduction on how to read and summarize data using the `tidyverse`. We will be using the National Hockey League's (NHL) API. 
+This vignette is an introduction on how to read and summarize NHL data using the `tidyverse`. We will be using the National Hockey League's (NHL) Records and Stats API. In this vignette we will explore how to access the different APIs and their corresponding endpoints with various modifiers based on the specified team input. Following the query functions is an exploratory data analysis on the data available.
 
 ## Load Packages
 Before reading and summarizing the data, some necessary packages must be loaded.
@@ -31,11 +31,12 @@ library(dplyr)
 library(readr)
 library(DT)
 library(lubridate)
-library(shiny)
-library(shinyWidgets)
+library(ggplot2)
+library(stringr)
 ```
 
 ## NHL Record API
+First we must create a function that calls user input for endpoint to return the corresponding data from the NHL Records API. This function allows the user to access franchise, team totals, season records, goalie records, skater records, and admin history for each team.
 ```{r API reader}
 API_info <- function(call){
   base <- "https://records.nhl.com/site/api"
@@ -43,49 +44,40 @@ API_info <- function(call){
   get_info_text <- content(get_info, as = "text")
   get_info_json <- fromJSON(get_info_text, flatten = TRUE)
   get_info_df <- as.data.frame(get_info_json)
+  get_info_tbl <- tbl_df(get_info_df)
+  return(get_info_tbl)
 }
 ```
 
-
 ### Franchise
+This function allows the user to access basic franchise information for each team. No input is required by the user to call this data.
 ```{r NHL Record API franchise}
 franchise_info <- function(){
   franchise_df <- API_info("franchise")
-  franchise_df$data.id <- NULL
-  franchise_df$total <- NULL
-  franchise_df <<- franchise_df
-  franchise_df <- franchise_df %>% select(data.mostRecentTeamId, data.fullName, data.teamPlaceName,
+  franchise_df <- franchise_df %>% select(data.id, data.mostRecentTeamId, data.fullName, data.teamPlaceName,
                                                   data.teamCommonName, data.teamAbbrev, data.firstSeasonId,
-                                                  data.lastSeasonId) %>% arrange(data.mostRecentTeamId)
-  kable(franchise_df, col.names = c("Most Recent Team ID", "Full Name", "Location", "Common Name", "Abbreviation", "First Season", "Last Season"))
+                                                  data.lastSeasonId, total) %>% arrange(data.mostRecentTeamId)
+  return(franchise_df)
 }
-franchise_info()
 ```
 
-### Franchise Team Totals
-```{r NHL Record API franchise team totals}
-franchise_team_totals <- function(){
-  team_df <- API_info("franchise-team-totals")
-  team_total_df <<- team_df
-  team_df$data.activeFranchise <- as_factor(team_df$data.activeFranchise)
-  levels(team_df$data.activeFranchise) <- list("No" = 0, "Yes" = 1)
-  team_df$data.gameTypeId <- as_factor(team_df$data.gameTypeId)
-  levels(team_df$data.gameTypeId) <- list("Regular Season" = 2, "Playoffs" = 3)
-  # get_franchsie_df[2] <-
-  #   paste0(substr(get_franchise_df[2],1,4),"/",substr(get_franchise_df[2],5,8))
-  team_df$data.id <- NULL
-  team_df$total <- NULL
-  team_df <- team_df %>% select(data.franchiseId, data.teamName, data.triCode, data.teamId, data.activeFranchise, data.firstSeasonId, data.lastSeasonId, everything()) %>% arrange(data.franchiseId)
-  col_names <- c("Franchise ID", "Team Name", "Abbreviation", "Team ID", "Active Franchise", "First Season", "Last Season", "Game Type", "Games Played", "Goals Against", "Goals For", "Home Losses", "Home Overtime Losses", "Home Ties","Home Wins", "Losses", "Overtime Losses", "Penalty Minutes", "Point Percentage", "Data Points", "Road Losses", "Road Overtime Losses", "Road Ties", "Road Wins", "Shootout Losses", "Shootout Wins","Shutouts", "Ties", "Wins")
-  kable(team_df, col.names = col_names)
+#### Franchise IDs
+The following function outputs the possible franchise IDs that are used in the functions for season records, goalie records, skater records, and admin history for each franchise.
+```{r franchise identifers}
+franchise_identifer <- function(){
+  franchise_IDs <- franchise_info()
+  franchise_IDs <- franchise_IDs %>% select(data.fullName, data.id) %>% arrange(data.id)
+  colnames(franchise_IDs) <- c("Team Name" , "Franchise ID")
+  return(franchise_IDs)
 }
-franchise_team_totals()
+kable(franchise_identifer())
 ```
 
+This function allows the user to specify their desired franchise based on either franchise name or franchise ID. It also returns an error with instructional message if the user enters an invalid franchise or franchise ID.
 ```{r franchise to ID, error=TRUE, message = TRUE}
 franchise_ID <- function(franchise){
   if(is.numeric(franchise)){
-    if(franchise >0 & franchise < 39)
+    if(franchise > 0 & franchise < 39)
       return(franchise)
     else{
       stop("Please enter a valid franchise ID from 1-38")
@@ -102,47 +94,100 @@ franchise_ID <- function(franchise){
 }
 ```
 
-### Season Records
-```{r NHL Franchise Season Records, error = TRUE}
-season_record <- function(franchise){
-  season_df <- API_info(paste0("franchise-season-records?cayenneExp=franchiseId=", franchise_ID(franchise)))
-  season_df <<- season_df
-  season_df$data.id <- NULL
-  season_df$total <- NULL
-  season_df <- season_df %>% select(data.franchiseName, data.franchiseId, everything())
-  kable(t(season_df), col.names = "")
+### Franchise Team Totals
+This function allows the user to access team totals for each franchise parsed by regular season and playoff data. Some of the variables were modified to make more sense to the user. 
+```{r NHL Record API franchise team totals}
+franchise_team_totals <- function(){
+  team_df <- API_info("franchise-team-totals")
+  team_df$data.activeFranchise <- as_factor(team_df$data.activeFranchise)
+  levels(team_df$data.activeFranchise) <- list("No" = 0, "Yes" = 1)
+  team_df$data.gameTypeId <- as_factor(team_df$data.gameTypeId)
+  levels(team_df$data.gameTypeId) <- list("Regular Season" = 2, "Playoffs" = 3)
+  team_df <- team_df %>% select(data.id, data.franchiseId, data.teamName, data.triCode, data.teamId, data.activeFranchise, data.firstSeasonId, data.lastSeasonId, everything()) %>% arrange(data.franchiseId)
+  return(team_df)
 }
-season_record("New Jersey Devils")
+```
+
+### Season Records
+The following function allows the user to access season records for all of the franchises. The user is given the option to filter the data by franchise or franchise ID.
+```{r NHL Franchise Season Records, error = TRUE}
+season_record <- function(franchise = NULL){
+  if(is.null(franchise)){
+    season_df <- API_info("franchise-season-records")
+    season_df <- season_df %>% select(data.id, data.franchiseName, data.franchiseId, everything())
+    return(season_df)
+  }else{
+    season_df <- API_info(paste0("franchise-season-records?cayenneExp=franchiseId=", franchise_ID(franchise)))
+    season_df <- season_df %>% select(data.id, data.franchiseName, data.franchiseId, everything())
+    return(season_df)
+  }
+}
 ```
 
 ### Goalie Records
+This function allows the user to access goalie records for all of the franchises. The user is given the option to filter the data by franchise or franchise ID.
 ```{r Goalie Records, error = TRUE}
-goalie_record <- function(franchise){
-  goalie_df <- API_info(paste0("franchise-goalie-records?cayenneExp=franchiseId=", franchise_ID(franchise)))
-  goalie_df <<- goalie_df
-  goalie_df$data.id <- NULL
-  goalie_df$total <- NULL
-  kable(goalie_df)
+goalie_record <- function(franchise = NULL){
+  if(is.null(franchise)){
+    goalie_df <- API_info("franchise-goalie-records")
+    return(goalie_df)
+  }else{
+    goalie_df <- API_info(paste0("franchise-goalie-records?cayenneExp=franchiseId=", franchise_ID(franchise)))
+    return(goalie_df)
+  }
 }
-goalie_record("New Jersey Devils")
 ```
 
 ### Skater Records
+The `skater_record` function allows the user to access skater records for all of the franchises. The user is given the option to filter the data by franchise or franchise ID.
 ```{r Skater Records, error = TRUE}
-skater_record <- function(franchise){
-  skater_df <- API_info(paste0("franchise-skater-records?cayenneExp=franchiseId=", franchise_ID(franchise)))
-  skater_df <<- skater_df
-  kable(skater_df)
+skater_record <- function(franchise = NULL){
+  if(is.null(franchise)){
+    skater_df <- API_info("franchise-skater-records")
+    return(skater_df)
+  }else{
+    skater_df <- API_info(paste0("franchise-skater-records?cayenneExp=franchiseId=", franchise_ID(franchise)))
+    return(skater_df)
+  }
 }
-#skater_record("New Jersey Devils")
 ```
 
+### Admin History and Retired Numbers
+The `admin_history` function allows the user to access admin history and retired numbers for every franchise. The user may also specify a franchise in order to pull data for a team of their choice.
+```{r Admin History and Retired Numbers, error = TRUE}
+admin_history <- function(franchise = NULL){
+  if(is.null(franchise)){
+    admin_history_df <- API_info("franchise-detail")
+    admin_history_df <- admin_history_df %>% select(data.mostRecentTeamId, data.teamFullName, data.teamAbbrev, data.id, everything())
+    return(admin_history_df)
+  }else{
+    admin_history_df <- API_info(paste0("franchise-detail?cayenneExp=mostRecentTeamId=", team_ID(franchise)))
+    admin_history_df <- admin_history_df %>% select(data.mostRecentTeamId, data.teamFullName, data.teamAbbrev, data.id, everything())
+    return(admin_history_df)
+  }
+}
+```
+
+#### Team IDs
+This function outputs the various team IDs for every franchise in the database. These are the only valid inputs to the `admin_history` function.
+```{r team identifers}
+team_identifer <- function(){
+  team_IDs <- franchise_team_totals()
+  team_IDs <- team_IDs %>% select(data.teamName, data.teamId) %>% arrange(data.teamId)
+  team_IDs <- team_IDs[seq(1, length(team_IDs$data.teamName), by = 2),]
+  colnames(team_IDs) <- c("Team Name" , "Team ID")
+  return(team_IDs)
+}
+kable(team_identifer())
+```
+
+The following function is the team to ID mapper. It accepts either the character team name (ex. "Washington Capitals") or team ID. An error will occur if an invalid input is made with a instructional message.
 ```{r Team ID, error = TRUE}
 team_ID <- function(franchise){
   if(is.numeric(franchise)){
-    if(franchise > 0 & franchise < 56){
-      if(franchise %in% c(11,27,31,32,33,34,35,36,38,40,42,44,46,47,48,50)){
-        stop("No team ID for 11, 27, 31, 32, 33, 34, 35, 36, 38, 40, 42, 44, 46, 47, 48, 50")
+    if(franchise > 0 & franchise <= 58){
+      if(franchise %in% c(11,27,31,32,33,34,35,36,38,40,42,44,46,47,48,50,55)){
+        stop("No team ID for 11, 27, 31, 32, 33, 34, 35, 36, 38, 40, 42, 44, 46, 47, 48, 50, 55")
       }else{
         return(franchise)
       }
@@ -161,14 +206,189 @@ team_ID <- function(franchise){
 }
 ```
 
-### Admin History and Retired Numbers
-```{r Admin History and Retired Numbers, error = TRUE}
-admin_history <- function(franchise){
-  admin_history_df <- API_info(paste0("franchise-detail?cayenneExp=mostRecentTeamId=", team_ID(franchise)))
-  admin_history_df <- admin_history_df %>% select(data.mostRecentTeamId, data.teamFullName, data.teamAbbrev, data.id, everything())
-  admin_history_df$total <- NULL
-  admin_history_df <<- admin_history_df
-  kable(admin_history_df)
+## NHL Stats API
+The next NHL API we will access is the NHL Stats API. The following function allows the user to access the NHL Stats API for the teams endpoint. By calling the function with no input, the stats for every team will be returned. If the user wishes, they can specify a team to access data on their specified input.
+```{r NHL Stats API}
+team_stats <- function(franchise = NULL){
+  base <- "https://statsapi.web.nhl.com/api/v1/teams"
+  if(is.null(franchise)){
+    url <- paste0(base, "?expand=team.stats")
+  }else{
+    ID <- team_ID(franchise)
+    url <- paste0(base, "/", ID, "?expand=team.stats")
+  }
+  get_stats <- GET(url)
+  get_stats_text <- content(get_stats, as = "text")
+  get_stats_json <- fromJSON(get_stats_text, flatten = TRUE)
+  get_stats_df <- as.data.frame(get_stats_json)
+  get_stats_tbl <- tbl_df(get_stats_df)
+  return(get_stats_tbl)
 }
-admin_history(12)
 ```
+
+## NHL One Stop Call Function
+The `NHL_info` function is a one stop shop to access any of the above endpoints based on the user input. This function also returns the corresponding endpoint and modifier if the user specifies a franchise they wish to explore. This function is used in the visual outputs as seen below. The possible inputs for endpoints are as follows:
+
+  * "franchise" to access the franchise info for all of the recorded franchises
+  * "team totals" to access the data from each team parsed by regular season and playoffs
+  * "season records" to access season records for each team
+  * "goalie records" to access goalie records for each team
+  * "skater records" to access skater records for each team
+  * "franchise history" to access admin history and retired numbers for each team
+  * "stats" to access the most recent statistics for each team
+
+```{r Wrapper function}
+NHL_info <- function(endpoint, ...){
+  if(endpoint == "franchise"){
+    franchise_info()
+  }else if(endpoint == "team totals"){
+    franchise_team_totals()
+  }else if(endpoint == "season records"){
+    season_record(...)
+  }else if(endpoint == "goalie records"){
+    goalie_record(...)
+  }else if(endpoint == "skater records"){
+    skater_record(...)
+  }else if(endpoint == "franchise history"){
+    admin_history(...)
+  }else if(endpoint == "stats"){
+    team_stats(...)
+  }else{
+    stop("Please enter valid endpoint")
+  }
+}
+```
+
+## NHL Exploratory Data Analysis
+### Newer Teams
+This contigency table takes a look at the teams from the franchise endpoint of the NHL Records API based on when they joined the NHL. I was curious to see how many teams joined the NHL after I was born, so I categorized all of the teams by older and younger than me. For reference I was born in 1995. Below it can be seen that 6/39 teams joined the league after I was born and are therefore younger than me.
+
+```{r New Teams Table}
+franchise_df <- NHL_info("franchise")
+franchise_df$data.firstSeasonId <- paste0(substr(franchise_df$data.firstSeasonId,1,4),"/",substr(franchise_df$data.firstSeasonId,5,8))
+franchise_df$year.split <- str_split(franchise_df$data.firstSeasonId, "/")
+for(j in 1:nrow(franchise_df)){
+  if(as.numeric(franchise_df$year.split[[j]][1]) >= 1995){
+    franchise_df$new.team[j] <- "Younger than me"
+  }else{
+    franchise_df$new.team[j] <- "Older than me"
+  }
+}
+franchise_table <- table(franchise_df$new.team)
+kable(franchise_table, col.names = c("Team Age", "Count"))
+```
+
+### Active Contigency Table
+Below is a contigency table that shows the number of teams that have made the playoffs after the regular season parsed by the active and inactive franchises. This shows that 5/13 inactive teams and 43/44 active teams ever made the playoffs. By taking the sum of the Regular Season column you can calculate the total number of 57 franchises represented in this endpoint. Based on my knowledge of the NHL, I know that there are only 31 active teams currently in the league so this information is misleading. To take a better look active the active teams that have made the playoffs, see below.
+
+```{r Active Table}
+team_totals_df <- NHL_info("team totals")
+active_df <- team_totals_df %>% filter(data.gameTypeId == "Regular")
+active_table <- table(team_totals_df$data.activeFranchise, team_totals_df$data.gameTypeId)
+kable(active_table)
+```
+
+### Record Contingency Tables
+This is a simple contigency table that shows the number of active teams that have ever made the playoffs after the regular season. There are 31 active teams as seen by the Regular Season row because all teams participate in the regular season and of those 31 teams all of them have made the playoffs before. This data was found by joining information from the NHL Record API and the NHL Stats API.
+
+```{r Playoff Table}
+team_totals_df <- NHL_info("team totals")
+colnames(team_totals_df)[3] <- "teams.name"
+stats_df <- NHL_info("stats")
+playoff_df <- left_join(stats_df, team_totals_df)
+playoff_table <- table(playoff_df$data.gameTypeId)
+kable(playoff_table, col.names = c("Game Type", "Number of Teams"))
+```
+
+### Goalie Single Season Records
+Below is a summary table of the median values for goalie single season records parsed by active and inactive players. Included is the number of goalies for each player status to show the amount of data being pulled. The data shows that goalies nowadays are a bit more active compared to previous goalies based on the median most shots, but not by a lot. I also wanted to include the median number of saves and median most goals allowed to see if the skill of the goalies have increased or decreased. Based on these values it appears that the skill level of the goalies have remained about the same with a possible slight increase in effectiveness.
+
+```{r WSH Gaolie Summary}
+goalie_df <- NHL_info("goalie records")
+goalie_df$data.activePlayer <- as_factor(goalie_df$data.activePlayer)
+levels(goalie_df$data.activePlayer) <- list("Active" = TRUE, "Inactive" = FALSE)
+goalie_game_df <- goalie_df %>% group_by(data.activePlayer) %>% summarise(`Number of Goalies` = n(), `Most Shots` = round(median(data.mostShotsAgainstOneGame, na.rm = TRUE)), `Most Saves` = round(median(data.mostSavesOneGame, na.rm = TRUE)), `Most Goals` = round(median(data.mostGoalsAgainstOneGame, na.rm = TRUE)))
+colnames(goalie_game_df)[1] <- "Players Status"
+kable(goalie_game_df)
+```
+
+### Washington Capitals Penalty Minutes
+Below is a summary table of the penalty minutes for the Washington Capitals parsed by position. Included is the number of skaters at each position to show the amount of data being pulled to calculate the averages. Based on the averages the left wings and defensemen spend the most time in the penalty box whereas the Centers seem to play a bit cleaner. However, I found it interesting that the position with the max amount of penalty minutes by far came from a center.
+
+```{r WSH Skater Summary}
+WSH_skater_df <- NHL_info("skater records", franchise = "Washington Capitals")
+for(k in 1:nrow(WSH_skater_df)){
+  WSH_skater_df$full.name[k] <- paste(WSH_skater_df$data.firstName[k], WSH_skater_df$data.lastName[k], sep = " ")
+}
+WSH_skater_df$data.positionCode <- as_factor(WSH_skater_df$data.positionCode)
+levels(WSH_skater_df$data.positionCode) <- list("Left Wing" = "L", "Right Wing" = "R", "Center" = "C", "Defensemen" = "D")
+WSH_pen_mins <- WSH_skater_df %>% group_by(data.positionCode) %>% summarise(`Number of Skaters` = n(), `Average Penalty Minutes` = round(mean(data.penaltyMinutes)), `Max Penalty Minutes` = max(data.penaltyMinutes))
+colnames(WSH_pen_mins)[1] <- "Position"
+kable(WSH_pen_mins)
+```
+
+### Barplot of Goalies
+Below is a barplot that shows the number of goalies with at least 10 shutouts in a season separated by team in order from most to least. The purpose of this plot is to show the teams that have had the best goalies throughout history. It should be noted that all teams are not represented here meaning that not all teams have had a goalie with 10 or more shutouts in a season. The teams with the most goalies are the Detroit Red Wings and the Boston Bruins with 4 goalies followed by the Toronto Maple Leafs, New York Rangers, and Montréal Canadiens with 3 goalies each.
+
+```{r Goalie Barplot}
+library(forcats)
+goalie_df <- NHL_info("goalie records")
+goalie_df <- goalie_df %>% filter(data.mostShutoutsOneSeason >= 10) %>% arrange(data.mostShutoutsOneSeason)
+ggplot(data = goalie_df, aes(y = fct_rev(fct_infreq(data.franchiseName)))) + geom_bar(fill = "blue") + labs(title = "Number of Goalies with 10 or more Shutouts in a Season", x = "Number of Shutouts", y = "Team Name")
+```
+
+### Histogram of Win Percentage
+This histogram shows the density plot of the winning percentage for all teams split up by regular season and playoffs. Overlayed is the density distribution. From the plots it can be seen that the average winning percentage for both regular season and playoffs is aroung .5 which means that the teams on average win as many games as they lose. This makes sense because the outcome of each game can only end with a single winner and loser. Each plot is left skewed to show that more teams have been unsuccessful in both games types.
+
+```{r percentage histogram}
+team_totals_df <- NHL_info("team totals")
+team_totals_df <- team_totals_df %>% group_by(data.teamName)
+team_totals_df$win.percentage <- team_totals_df$data.wins/(team_totals_df$data.wins + team_totals_df$data.losses)
+ggplot(data = team_totals_df, aes(x  = win.percentage)) + geom_histogram(aes(y = ..density..), bins = 20) + geom_density(lwd = 2, color = "red", position = "stack") + facet_grid(cols = vars(data.gameTypeId)) + labs(title = "Winning Percentage by Game Type", x = "Win Percentage", y = "Density")
+```
+
+### Histogram of Washington Capitals All Time Goal Leaders
+Below is a histogram of the number of seasons played by all of the Washington Capitals skaters. This plot is right skewed meaning that of all of the skaters that have played for the Capitals the majority only stay for a season or two. There is a drop off of skaters who stay with the Capitals more than 10 seasons which makes sense because that is a very long time with one franchise.
+
+```{r WSH goal histogram}
+WSH_skater_df <- NHL_info("skater records", "Washington Capitals")
+ggplot(data = WSH_skater_df, aes(x = data.seasons)) + geom_histogram(fill = "red") + labs(title = "Washington Capitals Skater Seasons Played", x = "Seasons", y = "Number of Skaters")
+```
+
+### Boxplot of Divsions
+Below shows boxplots for season points by division with the individual team points overlaid. Points for each team are calcualted as follows:
+
+  * 2 points for each win
+  * 1 point for an overtime/shootout loss
+  * 0 points for each loss
+
+The more points a team has the better they are considered to be. From the visual below it can be seen that the MassMutaul East was the best division on average, however, the best teams from the Discover Central and Honda West were better than their best teams. 
+
+```{r Division Boxplot}
+team_stats_df_1 <- team_stats()
+team_stats_df <- team_stats_df_1 %>% select(teams.name, teams.division.name, teams.teamStats)
+points <- c()
+for(i in 1:nrow(team_stats_df)){
+  points <- c(points, ((team_stats_df[[3]][[i]])[[1]][[1]])$stat.pts[1])
+}
+team_stats_df <- team_stats_df[-32,]
+team_stats_df <- cbind(team_stats_df, points)
+team_stats_df <- team_stats_df %>% select(-teams.teamStats)
+team_stats_df$teams.division.name <- as_factor(team_stats_df$teams.division.name)
+team_stats_df$points <- as.numeric(as.character(team_stats_df$points))
+ggplot(data = team_stats_df, aes(x = teams.division.name, y = points)) + geom_boxplot() + geom_point(aes(color = teams.division.name), position = "jitter") + labs(title = "Boxplots of Season Points by Division", x = "Division", y = "Season Points") + scale_color_discrete(name = "Divisions")
+```
+
+### Goals by Season Scatter Plot
+The following plots show the number of goals scored by skaters based on the number of seasons they played. The plots are parsed by the position that they played. Overlayed is a line of best fit with error bounds to show the trend in the data. Based on the trend lines it can be seen that as the number of seasons played by skaters increased so did the number of goals they scored. This makes sense because if you play in more season you play more games and have more opprotunities to score goals. I also think it is interesting that the slope of the trend lines are almost identical for the left wings, right wings, and centers meaning that those positions score about the same number of goals based on the number of seasons they played. The slope for the defensemen is much less than the other three which also makes sense because that position has less opprotunies to score.
+
+```{r Skater Scatter Plot}
+skater_df <- NHL_info("skater records")
+skater_df$data.positionCode <- as_factor(skater_df$data.positionCode)
+levels(skater_df$data.positionCode) <- list("Left Wing" = "L", "Right Wing" = "R", "Center" = "C", "Defensemen" = "D")
+ggplot(data = skater_df, aes(x = data.seasons, y = data.goals)) + geom_point() + geom_smooth() + facet_grid(cols = vars(data.positionCode)) + labs(title = "Goals Scored by Number of Season", x = "Number of Seasons", y = "Goals Scored")
+```
+
+## Conclusion
+In conclusion, this analysis was an introduction on how to access the various NHL APIs and how to conduct an exploratory data analysis on the different endpoints. The various visuals are just a beginning to the possible outputs that can be created from these NHL endpoints. I highly recommend to use these functions and visual coding to explore more about the NHL based on your favorite team.
+
